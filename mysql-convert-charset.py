@@ -1,6 +1,7 @@
-import MySQLdb
 from MySQLdb.cursors import DictCursor
 import argparse
+import MySQLdb
+import sys
 
 
 def generate_script(conn, *, database, collation, charset):
@@ -28,6 +29,7 @@ def main():
     ap.add_argument('--charset')
     ap.add_argument('-c', '--collation', default='utf8mb4_unicode_ci')
     ap.add_argument('-x', '--execute', action='store_true')
+    ap.add_argument('--ignore-key-errors', action='store_true')
     args = ap.parse_args()
 
     if not args.charset:
@@ -55,7 +57,14 @@ def main():
         for statement in conversion_sql:
             print('{};'.format(statement))
             if args.execute:
-                c.execute(statement)
+                try:
+                    c.execute(statement)
+                except MySQLdb.OperationalError as oe:
+                    if args.ignore_key_errors and 'Specified key was too long' in str(oe):
+                        print('*** Key length error: {}'.format(oe))
+                    else:
+                        raise
+
 
 
 if __name__ == '__main__':
